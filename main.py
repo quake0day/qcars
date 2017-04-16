@@ -67,7 +67,6 @@ def Simulation(start, end, step):
             print Decision
 
 
-
     #plotPoint(centerPoint, r, topology)
     # for time in xrange(start, end, step):
     #     request = prepareRequestInfo(size)
