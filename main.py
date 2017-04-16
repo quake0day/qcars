@@ -2,20 +2,58 @@ import numpy as np
 import math
 import matplotlib
 import matplotlib.pyplot as plt
-
+import matlab.engine
+import face_api
 
 def Simulation(start, end, step):
+    eng = matlab.engine.start_matlab()
+
     centerPoint = [0, 0]
     r = 10
     size = 10
-    topology = generateRandomPointR(centerPoint, r, size)
+    #topology = generateRandomPointR(centerPoint, r, size)
 
+    # Call matlab function...
+    Num = 5.0 #number of nodes
+    space = 10.0 #simulation space
+    distance_BOUND = 2.0 / space #distance_BOUND for a transmitter that serve as interference to another transmitter
+    T = 100.0
+    C = 1.0 #number of channel
+    S = 1.0 # scenario
+
+    # Generate random topology
+    Z, D = eng.topology(Num, distance_BOUND, space, nargout=2)
+    #print Z, D
+    SA = eng.zeros(C,T+13);
+
+
+    #Prepare request
+    # R=[t 1 3 2; t 2 3 4; t 3 2 5];%request
+    R = [[1, 1, 3, 2], [1, 2, 3, 4], [1, 3, 2, 5]]
+    R = matlab.double(R)
+
+    # Call FCFS function
+    # Decision, row, Trans, p = eng.FCFS(D, R, S, SA, nargout=4)
+
+    # Call SmallestFirst function
+    # Decision, SortedR, AvaiChanal, row, Trans = eng.SmallestFirst(D, R, S, SA, nargout=5)
+
+    # Call EarliestFirst function
+    # Decision, SortedR, AvaiChanal, row, Trans = eng.EarliestFirst(D, R, S, SA, nargout=5)
+
+    Decision =[]
+    for t in xrange(start, end, step):
+        R = [[t, 1, 3, 2], [t, 2, 3, 4], [t, 3, 2, 5]]
+        R = matlab.double(R)
+        Decision, row, Trans, p = eng.FCFS(D, R, S, SA, nargout=4)
+
+    print Decision
     #plotPoint(centerPoint, r, topology)
-    for time in xrange(start, end, step):
-        request = prepareRequestInfo(size)
-        data = combineAll(topology, request)
-        sendData(data)
-    return ""
+    # for time in xrange(start, end, step):
+    #     request = prepareRequestInfo(size)
+    #     data = combineAll(topology, request)
+    #     sendData(data)
+    # return ""
 
 
 def generateRandomNumber(size):
@@ -105,7 +143,7 @@ def plotPoint(centerPoint, r, topology):
     plt.show()
 
 
-#Simulation(1, 10, 1)
+Simulation(1, 101, 1)
 #print topology
 #print preparePacketSize(10, 10)
 #print prepareTime(10, 10)
