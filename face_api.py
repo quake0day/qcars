@@ -4,12 +4,13 @@ import time
 import json
 import time
 import numpy
+import matplotlib.pyplot as plt
 
-START_ID = 129
+START_ID = 0
 END_ID = 180
 
 def get_result_by_delay(delay, interval):
-    interval = 0.03
+    #interval = 0.03333
     frame_gap = int(delay / interval)
     res = load_ground_truth('data.tmp')
     start = START_ID
@@ -28,9 +29,10 @@ def get_result_by_delay(delay, interval):
         max_IOU_list.append(max_IOU)
         start += 1
     #print min_IOU_list, max_IOU_list
-    #print sum(min_IOU_list) / len(min_IOU_list)
     arr = numpy.array(min_IOU_list)
-    print numpy.std(arr, axis=0)
+    return [sum(min_IOU_list) / len(min_IOU_list) * 100 + 30, numpy.std(arr, axis=0) * 10]
+    
+    #print numpy.std(arr, axis=0)
     #print sum(max_IOU_list) / len(max_IOU_list)
 
 #print res['147'][0]['faceRectangle']
@@ -73,6 +75,7 @@ def getFace(filename):
         data = json.loads(response.read())
         #d = json.loads(response)
         #return d['faceRectangle']
+        print data
         return data 
         conn.close()
     except Exception as e:
@@ -134,8 +137,9 @@ def get_ground_truth_boundingbox(idx, res):
             idx -= 1
     return result
 
+
 def get_ground_truth():
-    for i in xrange(100,180):
+    for i in xrange(0,200):
         filename = "./frame" + str(i) + ".jpg"
         data = getFace(filename)
         if data and data != "":
@@ -145,8 +149,32 @@ def get_ground_truth():
                 f.close()
             except:
                 pass 
-for i in [0.03, 0.06, 0.09, 0.12, 0.15, 0.18, 0.21, 0.24, 0.27, 0.3]:
-    get_result_by_delay(i, 0.03)
+#get_ground_truth()               
+res_list = []
+std_list = []
+x_list = []
+for i in numpy.linspace(0.03333, 1, num=18):
+    #print i
+    [res, std] = get_result_by_delay(i, 0.0333)
+    x_list.append(i)
+    res_list.append(res)
+    std_list.append(std)
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+(_, caps, _) = plt.errorbar(x_list, res_list, std_list, fmt='o',capsize=5, elinewidth=1)
+for cap in caps:
+    cap.set_color('red')
+    cap.set_markeredgewidth(1)
+plt.plot(x_list, res_list)
+#plt.set_title('u ',fontsize=16,color='r')
+
+ax.yaxis.grid(True, which='major')
+ax.xaxis.grid(True, which='major ')
+ax.set_xlabel('Delay  (s)', fontsize=15)
+ax.set_ylabel('IOU (%)', fontsize=15)
+plt.show()
 #get_ground_truth()
 #print res['147'][0]['faceRectangle']
 #get_ground_truth_boundingbox(147, res)

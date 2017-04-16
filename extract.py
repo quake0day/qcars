@@ -1,5 +1,5 @@
 import cv2
-vidcap = cv2.VideoCapture('./IMG_0962.MOV')
+vidcap = cv2.VideoCapture('./IMG_0972.MOV')
 success, image = vidcap.read()
 count = 0
 success = True
