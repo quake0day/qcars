@@ -4,18 +4,21 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matlab.engine
 import face_api as face
+from matplotlib.ticker import MaxNLocator
 
 
 # total frames in the folder
 # need to be changed
 TOTAL_FRAMES = 1828
 
-Num = 5.0  # number of nodes
-START_ID = [i for i in xrange(int(Num))]
-START_ID = [elem * int(TOTAL_FRAMES / Num) for elem in START_ID]
 
 
-def Simulation(start, end, step):
+
+def Simulation(start, end, step, num):
+    Num = num # number of nodes
+    START_ID = [i for i in xrange(int(Num))]
+    START_ID = [elem * int(TOTAL_FRAMES / Num) for elem in START_ID]
+
     eng = matlab.engine.start_matlab()
 
     #centerPoint = [0, 0]
@@ -39,8 +42,8 @@ def Simulation(start, end, step):
 
     #Prepare request
     # R=[t 1 3 2; t 2 3 4; t 3 2 5];%request
-    R = [[1, 1, 3, 2], [1, 2, 3, 4], [1, 3, 2, 5]]
-    R = matlab.double(R)
+    #R = [[1, 1, 3, 2], [1, 2, 3, 4], [1, 3, 2, 5]]
+    #R = matlab.double(R)
 
     # Call FCFS function
     # Decision, row, Trans, p = eng.FCFS(D, R, S, SA, nargout=4)
@@ -52,22 +55,58 @@ def Simulation(start, end, step):
     # Decision, SortedR, AvaiChanal, row, Trans = eng.EarliestFirst(D, R, S, SA, nargout=5)
 
     Decision =[]
+
+    # possible delay value
+    # need to be changed to make it real
+    delays = np.linspace(0.03333, 1, num=6)
+    Delay_Data = {}
     for t in xrange(start, end, step):
         # Prepare request for each node
         R = []
         for nid in xrange(int(Num)):
-            request_for_nid = prepareNodeRequest(nid, t, 0.85)
+            request_for_nid = prepareNodeRequest(nid, t, 0.95, START_ID )
             if len(request_for_nid) > 0:
                 R.append(request_for_nid)
 
         if len(R) != 0:
             R = matlab.double(R)
-            print R
-            Decision, row, Trans, p = eng.FCFS(D, R, S, SA, nargout=4)
-            print Decision
+            try:
+                #Decision, row, Trans, p = eng.FCFS(D, R, S, SA, nargout=4)
+                #Decision, SortedR, AvaiChanal, row, Trans = eng.SmallestFirst(D, R, S, SA, nargout=5)
+                Decision, SortedR, AvaiChanal, row, Trans = eng.EarliestFirst(D, R, S, SA, nargout=5)
+                for item in Decision:
+                    time = item[0]
+                    nid  = item[1]
+                    accept = item[-1]
+                    if accept == 0:
+                        if time not in Delay_Data:
+                            Delay_Data[time] = [nid]
+                        else:
+                            Delay_Data[time].append(nid)
+            except:
+                pass
+        # def get_IOU_by_delay(delay, start_id, end_id):
 
 
-    #plotPoint(centerPoint, r, topology)
+    All_Node_IOU_Min_Average = []
+    for nid in xrange(int(Num)):
+        IOU_Data = []
+        for t in xrange(start, end, step):
+            i = 1
+            for j in xrange(len(delays) - 2):
+                try:
+                    if(nid in Delay_Data[t-j]):
+                        i += 1
+                except:
+                    pass
+            d = delays[i]
+            min_IOU, max_IOU = face.get_IOU_by_delay(d, START_ID[nid]+t, START_ID[nid]+t)
+            IOU_Data.append(min_IOU)
+        All_Node_IOU_Min_Average.append(sum(IOU_Data) / len(IOU_Data) * 100)
+    arr = np.array(All_Node_IOU_Min_Average)
+
+    print "Done! Node num = %d" % num
+    return [sum(All_Node_IOU_Min_Average) / len(All_Node_IOU_Min_Average), np.std(arr, axis=0) ]    #plotPoint(centerPoint, r, topology)
     # for time in xrange(start, end, step):
     #     request = prepareRequestInfo(size)
     #     data = combineAll(topology, request)
@@ -75,7 +114,7 @@ def Simulation(start, end, step):
     # return ""
 
 #R = [[1, 1, 3, 2], [1, 2, 3, 4], [1, 3, 2, 5]]
-def prepareNodeRequest(nid, t, threshold, maxT = 20):
+def prepareNodeRequest(nid, t, threshold, START_ID ,maxT = 20):
     res = face.load_ground_truth('video1.dat')
     boxA = face.get_ground_truth_boundingbox(START_ID[nid]+t, res)
     R = [t+1, nid+1]  # To avoid 0 .. matlab does not support 0
@@ -178,8 +217,37 @@ def plotPoint(centerPoint, r, topology):
     ax.set_title('Display Topology')
     plt.show()
 
+if __name__ == "__main__":
+    #get_ground_truth_from_URL(801, 1828, "video1.dat")
+    res_list = []
+    std_list = []
+    x_list = []
+    for i in xrange(1, 21):
+        [res, std] = Simulation(0, TOTAL_FRAMES / i, 1, i)
+        x_list.append(i)
+        res_list.append(res)
+        std_list.append(std)
 
-Simulation(0, 180, 1)
+
+    fig = plt.figure()
+
+    ax = fig.add_subplot(111)
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    uplims = np.array([100]*20, dtype=bool)
+
+    (_, caps, _) = plt.errorbar(x_list, res_list, std_list, uplims=uplims, fmt='o',capsize=5, elinewidth=1)
+    for cap in caps:
+        cap.set_color('red')
+        cap.set_markeredgewidth(1)
+    plt.plot(x_list, res_list)
+    #plt.set_title('u ',fontsize=16,color='r')
+
+    ax.yaxis.grid(True, which='major')
+    ax.xaxis.grid(True, which='major ')
+    ax.set_xlabel('# of Node', fontsize=15)
+    ax.set_ylabel('IOU (%)', fontsize=15)
+    plt.show()
+
 
 #@face.get_ground_truth(0, 200, "video1.dat")
 #face.getFace("./frame0.jpg")
