@@ -3,21 +3,31 @@ import math
 import matplotlib
 import matplotlib.pyplot as plt
 import matlab.engine
-import face_api
+import face_api as face
+
+
+# total frames in the folder
+# need to be changed
+TOTAL_FRAMES = 1828
+
+Num = 5.0  # number of nodes
+START_ID = [i for i in xrange(int(Num))]
+START_ID = [elem * int(TOTAL_FRAMES / Num) for elem in START_ID]
+
 
 def Simulation(start, end, step):
     eng = matlab.engine.start_matlab()
 
-    centerPoint = [0, 0]
-    r = 10
-    size = 10
+    #centerPoint = [0, 0]
+    #r = 10
+    #size = 10
     #topology = generateRandomPointR(centerPoint, r, size)
 
     # Call matlab function...
-    Num = 5.0 #number of nodes
+
     space = 10.0 #simulation space
     distance_BOUND = 2.0 / space #distance_BOUND for a transmitter that serve as interference to another transmitter
-    T = 100.0
+    T = end - start
     C = 1.0 #number of channel
     S = 1.0 # scenario
 
@@ -43,17 +53,44 @@ def Simulation(start, end, step):
 
     Decision =[]
     for t in xrange(start, end, step):
-        R = [[t, 1, 3, 2], [t, 2, 3, 4], [t, 3, 2, 5]]
-        R = matlab.double(R)
-        Decision, row, Trans, p = eng.FCFS(D, R, S, SA, nargout=4)
+        # Prepare request for each node
+        R = []
+        for nid in xrange(int(Num)):
+            request_for_nid = prepareNodeRequest(nid, t, 0.85)
+            if len(request_for_nid) > 0:
+                R.append(request_for_nid)
 
-    print Decision
+        if len(R) != 0:
+            R = matlab.double(R)
+            print R
+            Decision, row, Trans, p = eng.FCFS(D, R, S, SA, nargout=4)
+            print Decision
+
+
+
     #plotPoint(centerPoint, r, topology)
     # for time in xrange(start, end, step):
     #     request = prepareRequestInfo(size)
     #     data = combineAll(topology, request)
     #     sendData(data)
     # return ""
+
+#R = [[1, 1, 3, 2], [1, 2, 3, 4], [1, 3, 2, 5]]
+def prepareNodeRequest(nid, t, threshold, maxT = 20):
+    res = face.load_ground_truth('video1.dat')
+    boxA = face.get_ground_truth_boundingbox(START_ID[nid]+t, res)
+    R = [t+1, nid+1]  # To avoid 0 .. matlab does not support 0
+    for i in xrange(maxT):
+        boxB = face.get_ground_truth_boundingbox(START_ID[nid]+t + i, res)
+        IOU = face.bb_intersection_over_union(boxA, boxB)
+        if  IOU < threshold:
+            # Assume 1/IOU is the packet size
+            # need to change to actual value ...
+            # To be DONE.
+            R.append(int(1/IOU)*10)
+            R.append(i)
+            return R
+    return []
 
 
 def generateRandomNumber(size):
@@ -110,13 +147,13 @@ def generateRandomPointRec(centerPoint, length, width, size = 10):
     #(b*R*cos(2*pi*a/b), b*R*sin(2*pi*a/b))
 
 
-def prepareRequestInfo(size = 10):
-    request = []
-    reqSizeArray = preparePacketSize(size)
-    reqTimeArray = prepareTime(size)
-    for i in xrange(size):
-        request.append([i, reqSizeArray[i], reqTimeArray[i]])
-    return request
+# def prepareRequestInfo(size = 10):
+#     request = []
+#     reqSizeArray = preparePacketSize(size)
+#     reqTimeArray = prepareTime(size)
+#     for i in xrange(size):
+#         request.append([i, reqSizeArray[i], reqTimeArray[i]])
+#     return request
 
 def preparePacketSize(size, maxPacketsize = 10):
     return np.random.uniform(0, maxPacketsize, size)
@@ -143,7 +180,10 @@ def plotPoint(centerPoint, r, topology):
     plt.show()
 
 
-Simulation(1, 101, 1)
+Simulation(0, 180, 1)
+
+#@face.get_ground_truth(0, 200, "video1.dat")
+#face.getFace("./frame0.jpg")
 #print topology
 #print preparePacketSize(10, 10)
 #print prepareTime(10, 10)

@@ -46,9 +46,43 @@ def print_time(threadName, delay):
       f.close()
       print "%s: %s" % (count,  data) 
 
+def getFace_URL(filename):
+    headers = {
+        # Request headers
+        'Content-Type': 'application/json',
+        'Ocp-Apim-Subscription-Key': '3289657d188b4159b39df028555c5a19',
+    }
+
+    params = urllib.urlencode({
+        # Request parameters
+        'returnFaceId': 'true',
+        'returnFaceLandmarks': 'false',
+        'returnFaceAttributes': '',
+    })
+
+
+    body = {
+        # Request parameters
+        "url": "http://www.darlingtree.com/static/images/qcars/" + filename
+    }
+
+    try:
+        conn = httplib.HTTPSConnection('westus.api.cognitive.microsoft.com')
+        conn.request("POST", "/face/v1.0/detect?%s" % params, json.dumps(body), headers)
+        response = conn.getresponse()
+        data = json.loads(response.read())
+        #d = json.loads(response)
+        #return d['faceRectangle']
+        print data
+        return data
+        conn.close()
+    except Exception as e:
+        print e
+
 def getFace(filename):
     headers = {
         # Request headers
+       #'Content-Type': 'application/octet-stream',
         'Content-Type': 'application/octet-stream',
         'Ocp-Apim-Subscription-Key': '3289657d188b4159b39df028555c5a19',
     }
@@ -135,14 +169,26 @@ def get_ground_truth_boundingbox(idx, res):
             idx -= 1
     return result
 
+def get_ground_truth_from_URL(start, end, datafile):
+    f = open(datafile, 'a ')
+    for i in xrange(start, end+1):
+        filename = "frame%d.jpg" % i
+        data = getFace_URL(filename)
+        if data and data != "":
+            try:
+                f.write(str(i) + "#" + json.dumps(data) + "\n ")
+            except:
+                pass
+    f.close()
 
-def get_ground_truth():
-    for i in xrange(0,200):
-        filename = "./frame" + str(i) + ".jpg"
+
+def get_ground_truth(start, end, datafile):
+    for i in xrange(start,end):
+        filename = "./frame%d.jpg" % i
         data = getFace(filename)
         if data and data != "":
             try:
-                f = open("data.tmp", 'a ')
+                f = open(datafile, 'a ')
                 f.write(str(i) + "#" + json.dumps(data) + "\n ")
                 f.close()
             except:
@@ -150,6 +196,7 @@ def get_ground_truth():
 #get_ground_truth()               
 
 if __name__ == "__main__":
+    #get_ground_truth_from_URL(801, 1828, "video1.dat")
     res_list = []
     std_list = []
     x_list = []
@@ -175,6 +222,7 @@ if __name__ == "__main__":
     ax.set_xlabel('Delay  (s)', fontsize=15)
     ax.set_ylabel('IOU (%)', fontsize=15)
     plt.show()
+
 #get_ground_truth()
 #print res['147'][0]['faceRectangle']
 #get_ground_truth_boundingbox(147, res)
